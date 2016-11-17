@@ -28,6 +28,7 @@
 #endif
 
 #include "crypto_core.h"
+#include "util.h"
 
 #include "network.h"
 
@@ -106,7 +107,7 @@ bool public_key_valid(const uint8_t *public_key)
     if (public_key[31] >= 128) { /* Last bit of key is always zero. */
         return 0;
     }
-
+    
     return 1;
 }
 
@@ -123,9 +124,10 @@ int32_t encrypt_precompute(const uint8_t *public_key, const uint8_t *secret_key,
 int32_t encrypt_data_symmetric(const uint8_t *secret_key, const uint8_t *nonce, const uint8_t *plain, size_t length,
                                uint8_t *encrypted)
 {
-    if (length == 0 || !secret_key || !nonce || !plain || !encrypted) {
+    return_val_if_fail(length > 0, -1);
+
+    if (!secret_key || !nonce || !plain || !encrypted)
         return -1;
-    }
 
     uint8_t temp_plain[length + crypto_box_ZEROBYTES];
     uint8_t temp_encrypted[length + crypto_box_MACBYTES + crypto_box_BOXZEROBYTES];
@@ -133,9 +135,8 @@ int32_t encrypt_data_symmetric(const uint8_t *secret_key, const uint8_t *nonce, 
     memset(temp_plain, 0, crypto_box_ZEROBYTES);
     memcpy(temp_plain + crypto_box_ZEROBYTES, plain, length); // Pad the message with 32 0 bytes.
 
-    if (crypto_box_afternm(temp_encrypted, temp_plain, length + crypto_box_ZEROBYTES, nonce, secret_key) != 0) {
+    if (crypto_box_afternm(temp_encrypted, temp_plain, length + crypto_box_ZEROBYTES, nonce, secret_key) != 0)
         return -1;
-    }
 
     /* Unpad the encrypted message. */
     memcpy(encrypted, temp_encrypted + crypto_box_BOXZEROBYTES, length + crypto_box_MACBYTES);
@@ -145,9 +146,10 @@ int32_t encrypt_data_symmetric(const uint8_t *secret_key, const uint8_t *nonce, 
 int32_t decrypt_data_symmetric(const uint8_t *secret_key, const uint8_t *nonce, const uint8_t *encrypted, size_t length,
                                uint8_t *plain)
 {
-    if (length <= crypto_box_BOXZEROBYTES || !secret_key || !nonce || !encrypted || !plain) {
+    return_val_if_fail(length > crypto_box_BOXZEROBYTES, -1);
+
+    if (length < crypto_box_BOXZEROBYTES || !secret_key || !nonce || !encrypted || !plain)
         return -1;
-    }
 
     uint8_t temp_plain[length + crypto_box_ZEROBYTES];
     uint8_t temp_encrypted[length + crypto_box_BOXZEROBYTES];
@@ -155,9 +157,8 @@ int32_t decrypt_data_symmetric(const uint8_t *secret_key, const uint8_t *nonce, 
     memset(temp_encrypted, 0, crypto_box_BOXZEROBYTES);
     memcpy(temp_encrypted + crypto_box_BOXZEROBYTES, encrypted, length); // Pad the message with 16 0 bytes.
 
-    if (crypto_box_open_afternm(temp_plain, temp_encrypted, length + crypto_box_BOXZEROBYTES, nonce, secret_key) != 0) {
+    if (crypto_box_open_afternm(temp_plain, temp_encrypted, length + crypto_box_BOXZEROBYTES, nonce, secret_key) != 0)
         return -1;
-    }
 
     memcpy(plain, temp_plain + crypto_box_ZEROBYTES, length - crypto_box_MACBYTES);
     return length - crypto_box_MACBYTES;
